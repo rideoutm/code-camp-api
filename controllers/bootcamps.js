@@ -11,7 +11,7 @@ exports.getBootcamps = asyncHandler(async (req, res, next) => {
   const reqQuery = { ...req.query };
 
   // fields to exclude
-  const removeFields = ["select", "sort"];
+  const removeFields = ["select", "sort", "page", "limit"];
 
   // loop over removeFields and delete from reqQuery
   removeFields.forEach((param) => delete reqQuery[param]);
@@ -26,7 +26,7 @@ exports.getBootcamps = asyncHandler(async (req, res, next) => {
   );
 
   // finding resource
-  query = Bootcamp.find(JSON.parse(queryStr));
+  query = Bootcamp.find(JSON.parse(queryStr)).populate("courses");
 
   // select fields
   if (req.query.select) {
@@ -37,16 +37,43 @@ exports.getBootcamps = asyncHandler(async (req, res, next) => {
   // Sort
   if (req.query.sort) {
     const sortBy = req.query.sort.split(",").join(" ");
-    query = query.sort();
+    query = query.sort(sortBy);
   } else {
     query = query.sort("-createdAt");
   }
 
+  // Pagination
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 100;
+  const startIndex = (page - 1) * limit;
+  const endIndex = page * limit;
+  const total = await Bootcamp.countDocuments();
+
+  query = query.skip(startIndex).limit(limit);
+
   // execute query
-  const bootcamps = await Bootcamp.find(query);
-  res
-    .status(200)
-    .json({ success: true, count: bootcamps.length, data: bootcamps });
+  const bootcamps = await query;
+  const pagination = {};
+
+  if (endIndex < total) {
+    pagination.next = {
+      page: page + 1,
+      limit,
+    };
+  }
+
+  if (startIndex > 0) {
+    pagination.prev = {
+      page: page - 1,
+      limit,
+    };
+  }
+  res.status(200).json({
+    success: true,
+    count: bootcamps.length,
+    pagination,
+    data: bootcamps,
+  });
 });
 
 // Get single bootcamp
@@ -106,6 +133,7 @@ exports.deleteBootcamp = asyncHandler(async (req, res, next) => {
     );
   }
 
+  bootcamp.remove();
   res.status(400).json({ success: true, data: {} });
 
   // next(err);
@@ -131,7 +159,9 @@ exports.getBootcampsInRadius = asyncHandler(async (req, res, next) => {
     location: { $geoWithin: { $centerSphere: [[lng, lat], radius] } },
   });
 
-  res
-    .status(200)
-    .json({ success: true, count: bootcamps.length, data: bootcamps });
+  res.status(200).json({
+    success: true,
+    count: bootcamps.length,
+    data: bootcamps,
+  });
 });

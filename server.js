@@ -6,7 +6,10 @@ const connectDB = require("./config/db");
 const app = express();
 const PORT = process.env.PORT || 5000;
 const errorHandler = require("./middleware/error");
+
+// route files
 const bootcamps = require("./routes/bootcamps");
+const courses = require("./routes/courses");
 if (process.env.NODE_ENV === "development") app.use(morgan("dev"));
 
 //load env
@@ -17,6 +20,7 @@ app.use(errorHandler);
 
 // mount routers
 app.use("/api/v1/bootcamps", bootcamps);
+app.use("/api/v1/courses", courses);
 
 const server = app.listen(
   PORT,
